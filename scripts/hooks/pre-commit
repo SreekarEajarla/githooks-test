@@ -15,8 +15,14 @@ update_metadata() {
         current_version=$(grep -E "# Version: " "$file" | sed -E "s/# Version: ([0-9]+\.[0-9]+)/\1/")
         major_version=$(echo $current_version | cut -d. -f1)
         minor_version=$(echo $current_version | cut -d. -f2)
-        new_minor_version=$((minor_version + 1))
-        new_version="$major_version.$new_minor_version"
+        if [ $minor_version -eq 9 ]; then
+            new_major_version=$((major_version + 1))
+            new_minor_version=0
+        else
+            new_major_version=$major_version
+            new_minor_version=$((minor_version + 1))
+        fi
+        new_version="$new_major_version.$new_minor_version"
         sed -i.bak -E "s/(# Version: ).*/\1$new_version/" "$file"
     else
         # Add creator details and initial version
