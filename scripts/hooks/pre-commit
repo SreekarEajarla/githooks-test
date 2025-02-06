@@ -11,14 +11,18 @@ update_metadata() {
         # Update last modified details
         sed -i.bak -E "s/(Last Modified by: ).*/\1$current_user/" "$file"
         sed -i.bak -E "s/(Last Modified date: ).*/\1$current_timestamp/" "$file"
+        # Increment version number
+        sed -i.bak -E "s/(Version: )([0-9]+\.[0-9]+)/echo \1$(awk -F. '{print $1"."$2+1}' <<< \2)/e" "$file"
     else
-        # Add creator details
+        # Add creator details and initial version
         echo "# Created by: $current_user" >> "$file.tmp"
         echo "# Created date: $current_timestamp" >> "$file.tmp"
+        echo "# Version: 1.0" >> "$file.tmp"
         echo "# Last Modified by: $current_user" >> "$file.tmp"
         echo "# Last Modified date: $current_timestamp" >> "$file.tmp"
+        echo " " >> "$file.tmp"
         cat "$file" >> "$file.tmp"
-        mv "$file.tmp" "$file"
+        mv "$file.tmp" "$file"        
     fi
     rm -f "$file.bak"
 }
