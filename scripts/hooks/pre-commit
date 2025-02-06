@@ -24,7 +24,7 @@ update_metadata() {
 }
 
 # Find all SQLX and PY files that are staged for commit
-for file in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sqlx|py)$'); do
+for file in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sqlx|sql|py)$'); do
     update_metadata "$file"
     git add "$file"
 done
