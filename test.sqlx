@@ -2,4 +2,4 @@
 # Created date: 2025-02-06 18:32:53
 # Last Modified by: Sreekar
 # Last Modified date: 2025-02-06 18:32:53
-select * from table;
+select ename from table;
