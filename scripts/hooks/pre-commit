@@ -8,39 +8,32 @@ current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 update_metadata() {
     file=$1
     # Get the current commit message from the staged changes
-    commit_message=$(git log -1 --cached --pretty=%B 2>/dev/null || git log -1 --pretty=%B 2>/dev/null)
-    if [ -z "$commit_message" ]; then
-        # If no commit message is found, use the message from the current commit being made
-        commit_message=$(cat "$GIT_DIR/COMMIT_EDITMSG" 2>/dev/null)
-    fi
+    commit_message=$(cat "$GIT_DIR/COMMIT_EDITMSG" 2>/dev/null || git log -1 --cached --pretty=%B 2>/dev/null)
 
-    if grep -q "creator name:" "$file"; then
+    if grep -q "^# creator name:" "$file"; then
         # Add new row to the metadata table
-        # Find the last line of the metadata table
-        table_end=$(grep -n "^-\{80\}$" "$file" | head -n 1 | cut -d: -f1)
-        if [ -n "$table_end" ]; then
-            # Create temporary file with new metadata
-            awk -v user="$current_user" \
-                -v version="$(get_next_version "$file")" \
-                -v timestamp="$current_timestamp" \
-                -v message="$commit_message" \
-                -v end="$table_end" \
-                '{
-                    print;
-                    if (NR == end) {
-                        printf "%-20s %-15s %-23s %s\n", user, version, timestamp, message;
-                    }
-                }' "$file" > "$file.tmp"
-            mv "$file.tmp" "$file"
-        fi
+        # Create temporary file with updated metadata
+        awk -v user="$current_user" \
+            -v version="$(get_next_version "$file")" \
+            -v timestamp="$current_timestamp" \
+            -v message="$commit_message" \
+            'BEGIN {found_separator = 0}
+            {
+                print;
+                if ($0 ~ /^# -{80}$/ && !found_separator) {
+                    printf "%-20s %-15s %-23s %s\n", user, version, timestamp, message;
+                    found_separator = 1;
+                }
+            }' "$file" > "$file.tmp"
+        mv "$file.tmp" "$file"
     else
         # Create temporary file with initial metadata
         {
-            echo "#creator name: $current_user"
-            echo "#creation time: $current_timestamp"
-            echo "#Modified by            Version          Modified timestamp         Commit message"
-            echo "#--------------------------------------------------------------------------------"
-            printf "#%-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$commit_message"
+            echo "# creator name: $current_user"
+            echo "# creation time: $current_timestamp"
+            echo "# Modified by            Version          Modified timestamp         Commit message"
+            echo "# --------------------------------------------------------------------------------"
+            printf "%-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$commit_message"
             echo ""
             cat "$file"
         } > "$file.tmp"
