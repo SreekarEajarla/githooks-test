@@ -31,9 +31,6 @@ update_metadata() {
         # Add creator details and initial version
         echo "# Created by: $current_user" > "$file.tmp"
         echo "# Created date: $current_timestamp" >> "$file.tmp"
-        echo "# Version: 1.0" >> "$file.tmp"
-        echo "# Last Modified by: $current_user" >> "$file.tmp"
-        echo "# Last Modified date: $current_timestamp" >> "$file.tmp"
         echo "# Modifier | Version | Timestamp | Commit Message" >> "$file.tmp"
         echo "# $current_user | 1.0 | $current_timestamp | $current_commit_message" >> "$file.tmp"
         echo " " >> "$file.tmp"
