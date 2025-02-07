@@ -39,12 +39,13 @@ update_metadata() {
         
         # Create temporary file with initial metadata
         {
+            echo "'''"
             echo "creator name: $current_user"
             echo "creation time: $current_timestamp"
             echo "Modified by            Version          Modified timestamp         Commit message"
             echo "--------------------------------------------------------------------------------"
             printf "%-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$commit_message"
-            echo ""
+            echo "'''"
             cat "$file"
         } > "$file.tmp"
         mv "$file.tmp" "$file"
