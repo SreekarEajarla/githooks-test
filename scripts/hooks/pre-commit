@@ -4,24 +4,46 @@
 current_user=$(git config user.name)
 current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
+# Function to get comment prefix based on file extension
+get_comment_prefix() {
+    case "$1" in
+        *.py)
+            echo "#"
+            ;;
+        *.sql|*.sqlx)
+            echo "--"
+            ;;
+        *)
+            echo "#"
+            ;;
+    esac
+}
+
 # Function to add or update metadata in a file
 update_metadata() {
     file=$1
-    # Get the current commit message from the staged changes
-    commit_message=$(cat "$GIT_DIR/COMMIT_EDITMSG" 2>/dev/null || git log -1 --cached --pretty=%B 2>/dev/null)
+    comment_prefix=$(get_comment_prefix "$file")
+    
+    # Try to get commit message from the staging area first
+    if [ -f ".git/COMMIT_EDITMSG" ]; then
+        commit_message=$(cat .git/COMMIT_EDITMSG | head -1)
+    else
+        commit_message="No commit message available"
+    fi
 
-    if grep -q "^# creator name:" "$file"; then
+    if grep -q "^${comment_prefix} creator name:" "$file"; then
         # Add new row to the metadata table
         # Create temporary file with updated metadata
         awk -v user="$current_user" \
             -v version="$(get_next_version "$file")" \
             -v timestamp="$current_timestamp" \
             -v message="$commit_message" \
+            -v prefix="$comment_prefix" \
             'BEGIN {found_separator = 0}
             {
                 print;
-                if ($0 ~ /^# -{80}$/ && !found_separator) {
-                    printf "# %-20s %-15s %-23s %s\n", user, version, timestamp, message;
+                if ($0 ~ "^" prefix " -{80}$" && !found_separator) {
+                    printf "%s %-20s %-15s %-23s %s\n", prefix, user, version, timestamp, message;
                     found_separator = 1;
                 }
             }' "$file" > "$file.tmp"
@@ -29,11 +51,11 @@ update_metadata() {
     else
         # Create temporary file with initial metadata
         {
-            echo "# creator name: $current_user"
-            echo "# creation time: $current_timestamp"
-            echo "# Modified by            Version          Modified timestamp         Commit message"
-            echo "# --------------------------------------------------------------------------------"
-            printf "# %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$commit_message"
+            echo "${comment_prefix} creator name: $current_user"
+            echo "${comment_prefix} creation time: $current_timestamp"
+            echo "${comment_prefix} Modified by            Version          Modified timestamp         Commit message"
+            echo "${comment_prefix} --------------------------------------------------------------------------------"
+            printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$commit_message"
             echo ""
             cat "$file"
         } > "$file.tmp"
@@ -45,8 +67,9 @@ update_metadata() {
 # Function to calculate the next version number
 get_next_version() {
     file=$1
+    comment_prefix=$(get_comment_prefix "$file")
     # Find the last version number in the metadata table
-    last_version=$(awk '/^# [A-Za-z]+ +[0-9]+\.[0-9]+ +[0-9]{4}-[0-9]{2}-[0-9]{2}/ {ver=$3} END {print ver}' "$file")
+    last_version=$(awk -v prefix="$comment_prefix" '/^[#-]+ [A-Za-z]+ +[0-9]+\.[0-9]+ +[0-9]{4}-[0-9]{2}-[0-9]{2}/ {ver=$3} END {print ver}' "$file")
     
     # Check if last_version is empty or invalid, default to "1.0"
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
