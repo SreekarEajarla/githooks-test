@@ -7,41 +7,54 @@ current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 # Function to add or update metadata in a file
 update_metadata() {
     file=$1
-    if grep -q "Created by:" "$file"; then
-        # Update last modified details
-        sed -i.bak -E "s/(# Last Modified by: ).*/\1$current_user/" "$file"
-        sed -i.bak -E "s/(# Last Modified date: ).*/\1$current_timestamp/" "$file"
-        # Increment version number
-        current_version=$(grep -E "# Version: " "$file" | sed -E "s/# Version: ([0-9]+\.[0-9]+)/\1/")
-        major_version=$(echo $current_version | cut -d. -f1)
-        minor_version=$(echo $current_version | cut -d. -f2)
-        if [ $minor_version -eq 9 ]; then
-            new_major_version=$((major_version + 1))
-            new_minor_version=0
-        else
-            new_major_version=$major_version
-            new_minor_version=$((minor_version + 1))
-        fi
-        new_version="$new_major_version.$new_minor_version"
-        sed -i.bak -E "s/(# Version: ).*/\1$new_version/" "$file"
+    if grep -q "## Metadata" "$file"; then
+        # Add new row to the metadata table
+        commit_message=$(git log -1 --pretty=%B "$file" | head -n 1)
+        echo "| $current_user | $(get_next_version "$file") | $current_timestamp | $commit_message |" >> "$file"
+        git add "$file"  # Stage the changes
     else
-        # Add creator details and initial version
-        echo "# Created by: $current_user" > "$file.tmp"
-        echo "# Created date: $current_timestamp" >> "$file.tmp"
-        echo "# Version: 1.0" >> "$file.tmp"
-        echo "# Last Modified by: $current_user" >> "$file.tmp"
-        echo "# Last Modified date: $current_timestamp" >> "$file.tmp"
-        echo " " >> "$file.tmp"
+        # Add creator details, initial metadata table, and initial row
+        echo "## Metadata" > "$file.tmp"
+        echo "| Updated By | Version | Updated At | Commit Message |" >> "$file.tmp"
+        echo "|------------|---------|------------|----------------|" >> "$file.tmp" # Markdown table header separator
+        commit_message=$(git log -1 --pretty=%B "$file" | head -n 1)  # Get initial commit message
+        echo "| $current_user | 1.0 | $current_timestamp | $commit_message |" >> "$file.tmp"
+        echo "" >> "$file.tmp"  # Add a newline for separation
         cat "$file" >> "$file.tmp"
         mv "$file.tmp" "$file"
+        git add "$file" # Stage the changes
     fi
-    rm -f "$file.bak"
 }
 
-# Find all SQLX and PY files that are staged for commit
+# Function to calculate the next version number (simple increment)
+get_next_version() {
+    file=$1
+    last_version=$(tail -n +3 "$file" | head -n 1 | awk -F'|' '{print $3}' | tr -d ' ')
+
+    # Check if last_version is empty or invalid, default to "1.0"
+    if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+        echo "1.0"
+        return
+    fi
+
+    major_version=$(echo $last_version | cut -d. -f1)
+    minor_version=$(echo $last_version | cut -d. -f2)
+
+    if [ "$minor_version" -eq "9" ]; then
+        new_major_version=$((major_version + 1))
+        new_minor_version="0"
+    else
+        new_major_version="$major_version"
+        new_minor_version=$((minor_version + 1))
+    fi
+
+    echo "$new_major_version.$new_minor_version"
+}
+
+
+# Find all SQLX, SQL and PY files that are staged for commit
 for file in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sqlx|sql|py)$'); do
     update_metadata "$file"
-    git add "$file"
 done
 
 exit 0
