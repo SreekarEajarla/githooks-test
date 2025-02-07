@@ -1,8 +1,0 @@
-# Created by: Sreekar
-# Created date: 2025-02-06 18:32:53
-# Last Modified by: Sreekar
-# Last Modified date: 2025-02-06 22:29:41
-
-
-
-select sal from table_name;
