@@ -21,7 +21,7 @@ update_metadata() {
             {
                 print;
                 if ($0 ~ /^# -{80}$/ && !found_separator) {
-                    printf "%-20s %-15s %-23s %s\n", user, version, timestamp, message;
+                    printf "# %-20s %-15s %-23s %s\n", user, version, timestamp, message;
                     found_separator = 1;
                 }
             }' "$file" > "$file.tmp"
@@ -33,7 +33,7 @@ update_metadata() {
             echo "# creation time: $current_timestamp"
             echo "# Modified by            Version          Modified timestamp         Commit message"
             echo "# --------------------------------------------------------------------------------"
-            printf "%-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$commit_message"
+            printf "# %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$commit_message"
             echo ""
             cat "$file"
         } > "$file.tmp"
@@ -46,7 +46,7 @@ update_metadata() {
 get_next_version() {
     file=$1
     # Find the last version number in the metadata table
-    last_version=$(awk '/^[A-Za-z]+ +[0-9]+\.[0-9]+ +[0-9]{4}-[0-9]{2}-[0-9]{2}/ {ver=$2} END {print ver}' "$file")
+    last_version=$(awk '/^# [A-Za-z]+ +[0-9]+\.[0-9]+ +[0-9]{4}-[0-9]{2}-[0-9]{2}/ {ver=$3} END {print ver}' "$file")
     
     # Check if last_version is empty or invalid, default to "1.0"
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
