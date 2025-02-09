@@ -19,12 +19,12 @@ get_comment_prefix() {
     esac
 }
 
-# Function to calculate the next version number
+# Function to get the next version number
 get_next_version() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    # Find the last version number in the metadata table by reading the file in reverse
-    last_version=$(tac "$file" | grep -m 1 "^${comment_prefix} [A-Za-z0-9]\+" | awk '{print $3}')
+    # Find the first version number in the metadata table (reading from top)
+    last_version=$(grep -m 1 "^${comment_prefix} [A-Za-z0-9]\+" "$file" | awk '{print $3}')
     
     # Check if last_version is empty or invalid, default to "1.0"
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -61,7 +61,7 @@ update_metadata() {
     fi
 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
-        # Add new row to the metadata table
+        # Add new row at the top of the metadata table
         # Create temporary file with updated metadata
         awk -v user="$current_user" \
             -v version="$(get_next_version "$file")" \
@@ -70,15 +70,15 @@ update_metadata() {
             -v prefix="$comment_prefix" \
             'BEGIN {found_separator = 0}
             {
-                print;
                 if ($0 ~ "^" prefix " -{80}$" && !found_separator) {
                     printf "%s %-20s %-15s %-23s %s\n", prefix, user, version, timestamp, message;
                     found_separator = 1;
                 }
+                print;
             }' "$file" > "$file.tmp"
         mv "$file.tmp" "$file"
     else
-        # Create temporary file with initial metadata
+        # Create initial metadata structure
         {
             echo "${comment_prefix} creator name: $current_user"
             echo "${comment_prefix} creation time: $current_timestamp"
