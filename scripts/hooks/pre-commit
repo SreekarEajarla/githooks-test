@@ -61,9 +61,22 @@ update_metadata() {
     fi
 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
-        # Append new row to the metadata table
-        new_version=$(get_next_version "$file")
-        echo "${comment_prefix} $current_user              $new_version             $current_timestamp     $commit_message" >> "$file"
+        # Add new row to the metadata table
+        # Create temporary file with updated metadata
+        awk -v user="$current_user" \
+            -v version="$(get_next_version "$file")" \
+            -v timestamp="$current_timestamp" \
+            -v message="$commit_message" \
+            -v prefix="$comment_prefix" \
+            'BEGIN {found_separator = 0}
+            {
+                print;
+                if ($0 ~ "^" prefix " -{80}$" && !found_separator) {
+                    printf "%s %-20s %-15s %-23s %s\n", prefix, user, version, timestamp, message;
+                    found_separator = 1;
+                }
+            }' "$file" > "$file.tmp"
+        mv "$file.tmp" "$file"
     else
         # Create temporary file with initial metadata
         {
