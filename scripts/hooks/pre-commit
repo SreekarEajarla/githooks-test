@@ -23,8 +23,11 @@ get_comment_prefix() {
 get_next_version() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    # Find the first version number in the metadata table (reading from top)
-    last_version=$(grep -m 1 "^${comment_prefix} [A-Za-z0-9]\+" "$file" | awk '{print $3}')
+    # Find the first version number in the metadata table (reading from top, after the separator)
+    last_version=$(awk -v prefix="$comment_prefix" '
+        $0 ~ "^" prefix " -{80}$" { start=1; next }
+        start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
+    ' "$file")
     
     # Check if last_version is empty or invalid, default to "1.0"
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -61,20 +64,19 @@ update_metadata() {
     fi
 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
-        # Add new row at the top of the metadata table
-        # Create temporary file with updated metadata
+        # Add new row to the metadata table just after the separator line
         awk -v user="$current_user" \
             -v version="$(get_next_version "$file")" \
             -v timestamp="$current_timestamp" \
             -v message="$commit_message" \
             -v prefix="$comment_prefix" \
-            'BEGIN {found_separator = 0}
+            'BEGIN {header_end = 0}
             {
-                if ($0 ~ "^" prefix " -{80}$" && !found_separator) {
-                    printf "%s %-20s %-15s %-23s %s\n", prefix, user, version, timestamp, message;
-                    found_separator = 1;
-                }
                 print;
+                if ($0 ~ "^" prefix " -{80}$" && !header_end) {
+                    printf "%s %-20s %-15s %-23s %s\n", prefix, user, version, timestamp, message;
+                    header_end = 1;
+                }
             }' "$file" > "$file.tmp"
         mv "$file.tmp" "$file"
     else
