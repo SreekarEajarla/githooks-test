@@ -4,6 +4,9 @@
 current_user=$(git config user.name)
 current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
+# Get the commit message from the commit-msg hook's argument
+commit_message=$(head -n 1 "$1")
+
 # Function to get comment prefix based on file extension
 get_comment_prefix() {
     case "$1" in
@@ -55,13 +58,6 @@ get_next_version() {
 update_metadata() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    
-    # Try to get commit message from the staging area first
-    if [ -f ".git/COMMIT_EDITMSG" ]; then
-        commit_message=$(cat .git/COMMIT_EDITMSG | head -1)
-    else
-        commit_message="No commit message available"
-    fi
 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
         # Add new row to the metadata table just after the separator line
