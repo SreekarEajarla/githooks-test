@@ -1,10 +1,8 @@
 #!/bin/sh
 
-# Get the current user and timestamp
 current_user=$(git config user.name)
 current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-# Function to get comment prefix based on file extension
 get_comment_prefix() {
     case "$1" in
         *.py)
@@ -19,17 +17,14 @@ get_comment_prefix() {
     esac
 }
 
-# Function to get the next version number
 get_next_version() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    # Find the first version number in the metadata table (reading from top, after the separator)
     last_version=$(awk -v prefix="$comment_prefix" '
         $0 ~ "^" prefix " -{80}$" { start=1; next }
         start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
     ' "$file")
     
-    # Check if last_version is empty or invalid, default to "1.0"
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
         echo "1.0"
         return
@@ -38,9 +33,7 @@ get_next_version() {
     major_version=$(echo "$last_version" | cut -d. -f1)
     minor_version=$(echo "$last_version" | cut -d. -f2)
     
-    # Always increment minor version
     new_minor_version=$((minor_version + 1))
-    # If minor version reaches 10, increment major and reset minor
     if [ "$new_minor_version" -eq "10" ]; then
         new_major_version=$((major_version + 1))
         new_minor_version="0"
@@ -51,18 +44,15 @@ get_next_version() {
     echo "$new_major_version.$new_minor_version"
 }
 
-# Function to add or update metadata in a file
 update_metadata() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
     
-    # Try to get commit message from prepared commit msg
     if [ -f ".git/MERGE_MSG" ]; then
         commit_message=$(cat ".git/MERGE_MSG" | head -1)
     elif [ -f ".git/COMMIT_EDITMSG" ]; then
         commit_message=$(cat ".git/COMMIT_EDITMSG" | head -1)
     else
-        # Prompt for commit message if not available
         echo "Enter commit message for $file:"
         read -r commit_message
         if [ -z "$commit_message" ]; then
@@ -71,7 +61,6 @@ update_metadata() {
     fi
 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
-        # Add new row to the metadata table just after the separator line
         awk -v user="$current_user" \
             -v version="$(get_next_version "$file")" \
             -v timestamp="$current_timestamp" \
@@ -87,11 +76,10 @@ update_metadata() {
             }' "$file" > "$file.tmp"
         mv "$file.tmp" "$file"
     else
-        # Create initial metadata structure
         {
             echo "${comment_prefix} creator name: $current_user"
             echo "${comment_prefix} creation time: $current_timestamp"
-            echo "${comment_prefix} Modified by            Version          Modified timestamp         Commit message"
+            echo "${comment_prefix} Modified by                Version          Modified timestamp         Commit message"
             echo "${comment_prefix} --------------------------------------------------------------------------------"
             printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$commit_message"
             echo ""
@@ -99,10 +87,9 @@ update_metadata() {
         } > "$file.tmp"
         mv "$file.tmp" "$file"
     fi
-    git add "$file"  # Stage the changes
+    git add "$file" 
 }
 
-# Find all SQLX, SQL and PY files that are staged for commit
 for file in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sqlx|sql|py)$'); do
     update_metadata "$file"
 done
