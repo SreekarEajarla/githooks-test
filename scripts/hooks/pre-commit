@@ -67,27 +67,39 @@ update_metadata() {
         if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
             return  # Skip if there's already a pending message
         fi
-        # Add new row to the metadata table just after the separator line
-        awk -v user="$current_user" \
-            -v version="$(get_next_version "$file")" \
-            -v timestamp="$current_timestamp" \
-            -v message="$temp_message" \
-            -v prefix="$comment_prefix" \
-            'BEGIN {header_end = 0}
-            {
-                print;
-                if ($0 ~ "^" prefix " -{80}$" && !header_end) {
-                    printf "%s %-20s %-15s %-23s %s\n", prefix, user, version, timestamp, message;
-                    header_end = 1;
-                }
-            }' "$file" > "$file.tmp"
+        
+        # Create temporary file with header and new entry
+        {
+            # Copy the header section (creator name, creation time, and table header)
+            awk -v prefix="$comment_prefix" '
+                /^'$comment_prefix' creator name:/,/^'$comment_prefix' -{80}$/ {print}
+            ' "$file"
+            
+            # Add the new entry
+            printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
+            
+            # Add the last 9 commit entries after the separator (to make total of 10 with the new one)
+            awk -v prefix="$comment_prefix" '
+                BEGIN {count = 0}
+                $0 ~ "^" prefix " -{80}$" {header_end = 1; next}
+                header_end && /^'$comment_prefix'/ && count < 9 {print; count++}
+            ' "$file"
+            
+            # Add a blank line and the rest of the file content
+            echo ""
+            awk -v prefix="$comment_prefix" '
+                BEGIN {content = 0}
+                /^[^'$comment_prefix']/ || $0 == "" {content = 1}
+                content {print}
+            ' "$file"
+        } > "$file.tmp"
         mv "$file.tmp" "$file"
     else
         # Create initial metadata structure
         {
             echo "${comment_prefix} creator name: $current_user"
             echo "${comment_prefix} creation time: $current_timestamp"
-            echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
+            echo "${comment_prefix} Modified by            Version          Modified timestamp         Commit message"
             echo "${comment_prefix} --------------------------------------------------------------------------------"
             printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$temp_message"
             echo ""
