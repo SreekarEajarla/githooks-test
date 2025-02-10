@@ -5,6 +5,5 @@ if [ -e .git/hooks/pre-commit ]; then
     rm -rf .git/hooks/pre-commit
 fi
 
-# Create the symbolic link
 ln -s ../../scripts/hooks/pre-commit .git/hooks/pre-commit
 echo "Symbolic link created successfully."
