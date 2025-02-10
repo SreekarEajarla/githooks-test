@@ -99,7 +99,7 @@ update_metadata() {
         {
             echo "${comment_prefix} creator name: $current_user"
             echo "${comment_prefix} creation time: $current_timestamp"
-            echo "${comment_prefix} Modified by            Version          Modified timestamp         Commit message"
+            echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
             echo "${comment_prefix} --------------------------------------------------------------------------------"
             printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$temp_message"
             echo ""
