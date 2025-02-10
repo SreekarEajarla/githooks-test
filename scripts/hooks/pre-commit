@@ -1,15 +1,12 @@
 #!/bin/sh
 
-# Exit if this is a recursive call
 if [ -n "$SKIP_METADATA_HOOK" ]; then
     exit 0
 fi
 
-# Get the current user and timestamp
 current_user=$(git config user.name)
 current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-# Function to get comment prefix based on file extension
 get_comment_prefix() {
     case "$1" in
         *.py)
@@ -24,17 +21,14 @@ get_comment_prefix() {
     esac
 }
 
-# Function to get the next version number
 get_next_version() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    # Find the first version number in the metadata table (reading from top, after the separator)
     last_version=$(awk -v prefix="$comment_prefix" '
         $0 ~ "^" prefix " -{80}$" { start=1; next }
         start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
     ' "$file")
     
-    # Check if last_version is empty or invalid, default to "1.0"
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
         echo "1.0"
         return
@@ -43,9 +37,7 @@ get_next_version() {
     major_version=$(echo "$last_version" | cut -d. -f1)
     minor_version=$(echo "$last_version" | cut -d. -f2)
     
-    # Always increment minor version
     new_minor_version=$((minor_version + 1))
-    # If minor version reaches 10, increment major and reset minor
     if [ "$new_minor_version" -eq "10" ]; then
         new_major_version=$((major_version + 1))
         new_minor_version="0"
@@ -56,36 +48,28 @@ get_next_version() {
     echo "$new_major_version.$new_minor_version"
 }
 
-# Function to add or update metadata in a file
 update_metadata() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    temp_message="PENDING_COMMIT_MESSAGE"  # Placeholder for commit message
-
+    temp_message="PENDING_COMMIT_MESSAGE" 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
-        # Check if the last entry is already a pending message
         if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
-            return  # Skip if there's already a pending message
+            return 
         fi
         
-        # Create temporary file with header and new entry
         {
-            # Copy the header section (creator name, creation time, and table header)
             awk -v prefix="$comment_prefix" '
                 /^'$comment_prefix' creator name:/,/^'$comment_prefix' -{80}$/ {print}
             ' "$file"
             
-            # Add the new entry
             printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
             
-            # Add the last 9 commit entries after the separator (to make total of 10 with the new one)
             awk -v prefix="$comment_prefix" '
                 BEGIN {count = 0}
                 $0 ~ "^" prefix " -{80}$" {header_end = 1; next}
                 header_end && /^'$comment_prefix'/ && count < 9 {print; count++}
             ' "$file"
             
-            # Add a blank line and the rest of the file content
             echo ""
             awk -v prefix="$comment_prefix" '
                 BEGIN {content = 0}
@@ -95,7 +79,6 @@ update_metadata() {
         } > "$file.tmp"
         mv "$file.tmp" "$file"
     else
-        # Create initial metadata structure
         {
             echo "${comment_prefix} creator name: $current_user"
             echo "${comment_prefix} creation time: $current_timestamp"
@@ -108,13 +91,11 @@ update_metadata() {
         mv "$file.tmp" "$file"
     fi
 
-    # Set environment variable to prevent recursive calls
     export SKIP_METADATA_HOOK=1
     git add "$file"
     unset SKIP_METADATA_HOOK
 }
 
-# Store the list of modified files for post-commit hook
 for file in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sqlx|sql|py)$'); do
     echo "$file" >> .git/TRACKED_FILES
     update_metadata "$file"

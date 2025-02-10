@@ -1,14 +1,11 @@
 #!/bin/sh
 
-# Exit if this is a recursive call
 if [ -n "$SKIP_METADATA_HOOK" ]; then
     exit 0
 fi
 
-# Get the commit message from the last commit
 commit_message=$(git log -1 --pretty=%B)
 
-# Function to get comment prefix based on file extension
 get_comment_prefix() {
     case "$1" in
         *.py)
@@ -23,12 +20,10 @@ get_comment_prefix() {
     esac
 }
 
-# Update the commit message in files
 if [ -f .git/TRACKED_FILES ]; then
     while IFS= read -r file; do
         if [ -f "$file" ]; then
             comment_prefix=$(get_comment_prefix "$file")
-            # Replace PENDING_COMMIT_MESSAGE with actual commit message
             sed -i "s/PENDING_COMMIT_MESSAGE/$commit_message/" "$file"
             export SKIP_METADATA_HOOK=1
             git add "$file"
@@ -36,12 +31,10 @@ if [ -f .git/TRACKED_FILES ]; then
         fi
     done < .git/TRACKED_FILES
     
-    # Amend the commit with the updated files
     export SKIP_METADATA_HOOK=1
     git commit --amend --no-edit
     unset SKIP_METADATA_HOOK
     
-    # Clean up
     rm .git/TRACKED_FILES
 fi
 
