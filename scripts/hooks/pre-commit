@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Exit if this is a recursive call
+if [ -n "$SKIP_METADATA_HOOK" ]; then
+    exit 0
+fi
+
 # Get the current user and timestamp
 current_user=$(git config user.name)
 current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
@@ -58,6 +63,10 @@ update_metadata() {
     temp_message="PENDING_COMMIT_MESSAGE"  # Placeholder for commit message
 
     if grep -q "^${comment_prefix} creator name:" "$file"; then
+        # Check if the last entry is already a pending message
+        if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
+            return  # Skip if there's already a pending message
+        fi
         # Add new row to the metadata table just after the separator line
         awk -v user="$current_user" \
             -v version="$(get_next_version "$file")" \
@@ -86,7 +95,11 @@ update_metadata() {
         } > "$file.tmp"
         mv "$file.tmp" "$file"
     fi
-    git add "$file"  # Stage the changes
+
+    # Set environment variable to prevent recursive calls
+    export SKIP_METADATA_HOOK=1
+    git add "$file"
+    unset SKIP_METADATA_HOOK
 }
 
 # Store the list of modified files for post-commit hook
