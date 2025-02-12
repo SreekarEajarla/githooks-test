@@ -9,3 +9,4 @@
 
 select b from a;
 select x from y;
+select ab from x;g
