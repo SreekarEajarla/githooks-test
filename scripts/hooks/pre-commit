@@ -67,53 +67,29 @@ update_metadata() {
     comment_suffix=$(get_comment_suffix "$file")
     temp_message="PENDING_COMMIT_MESSAGE"
 
-    if grep -q "${comment_prefix} creator name:" "$file"; then
-        if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
-            return
+    # Remove any existing metadata header
+    sed -i '' "/${comment_prefix} creator name:/,/${comment_suffix}/d" "$file"
+
+    # Add the new metadata header
+    {
+        if [ "$comment_prefix" = "/*" ]; then
+            echo "/* creator name: $current_user"
+            echo " creation time: $current_timestamp"
+            echo " Modified by         Version          Modified timestamp      Commit message"
+            echo " --------------------------------------------------------------------------------"
+            printf " %-20s %-15s %-23s %s\n" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
+            echo "*/"
+        else
+            echo "${comment_prefix} creator name: $current_user"
+            echo "${comment_prefix} creation time: $current_timestamp"
+            echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
+            echo "${comment_prefix} --------------------------------------------------------------------------------"
+            printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
         fi
-
-        {
-            awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
-                /^'${prefix}' creator name:/,/'${prefix}' -{80}'${suffix}'/ {print}
-            ' "$file"
-
-            printf "%s %-20s %-15s %-23s %s\n" "${comment_prefix}" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
-
-            awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
-                BEGIN {count = 0}
-                $0 ~ "^"prefix" -{80}"suffix {header_end = 1; next}
-                header_end && /^'${prefix}'/ && count < 9 {print; count++}
-            ' "$file"
-
-            echo ""
-            awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
-                BEGIN {content = 0}
-                /^[^'"${comment_prefix}"']/'"${comment_suffix}"'/ || $0 == "" {content = 1}
-                content {print}
-            ' "$file"
-        } > "$file.tmp"
-        mv "$file.tmp" "$file"
-    else
-        {
-            if [ "$comment_prefix" = "/*" ]; then
-                echo "/* creator name: $current_user"
-                echo " creation time: $current_timestamp"
-                echo " Modified by         Version          Modified timestamp      Commit message"
-                echo " --------------------------------------------------------------------------------"
-                printf " %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$temp_message"
-                echo "*/"
-            else
-                echo "${comment_prefix} creator name: $current_user"
-                echo "${comment_prefix} creation time: $current_timestamp"
-                echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
-                echo "${comment_prefix} --------------------------------------------------------------------------------"
-                printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$temp_message"
-            fi
-            echo ""
-            cat "$file"
-        } > "$file.tmp"
-        mv "$file.tmp" "$file"
-    fi
+        echo ""
+        cat "$file"
+    } > "$file.tmp"
+    mv "$file.tmp" "$file"
 
     export SKIP_METADATA_HOOK=1
     git add "$file"
