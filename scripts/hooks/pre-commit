@@ -39,9 +39,15 @@ get_next_version() {
     comment_suffix=$(get_comment_suffix "$file")
 
     last_version=$(awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
-        $0 ~ "^"prefix" +[A-Za-z0-9_.-]+ +([0-9]+\.[0-9]+) +"suffix {
-            print $2
-            exit
+        BEGIN { FS = "[[:space:]]+" } # Field separator is one or more spaces
+        $0 ~ "^" prefix {
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /^[0-9]+\.[0-9]+$/) {
+                    version = $i;
+                    print version;
+                    exit;
+                }
+            }
         }
     ' "$file")
 
