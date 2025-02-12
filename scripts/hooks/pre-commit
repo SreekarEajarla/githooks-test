@@ -67,8 +67,8 @@ update_metadata() {
     comment_suffix=$(get_comment_suffix "$file")
     temp_message="PENDING_COMMIT_MESSAGE"
 
-    # Remove any existing metadata header
-    sed -i '' "/${comment_prefix} creator name:/,/${comment_suffix}/d" "$file"
+    # Robustly remove any existing metadata header
+    sed -i -E "/\/\* creator name:/,/\*\//d" "$file"
 
     # Add the new metadata header
     {
