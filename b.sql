@@ -1,3 +1,10 @@
+/* creator name: Sruthi179
+ creation time: 2025-02-12 12:31:26
+ Modified by         Version          Modified timestamp      Commit message
+ --------------------------------------------------------------------------------
+ Sruthi179            1.0             2025-02-12 12:31:26      sql file
+*/
+
 /* Sruthi179            1.0             2025-02-12 12:30:41     changed sql file
 
  creation time: 2025-02-12 12:29:33
@@ -10,4 +17,4 @@
 
 
 
-select sal from a;
+select a from a;
