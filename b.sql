@@ -1,4 +1,5 @@
-/* creator name: Sruthi179
+/* Sruthi179            1.0             2025-02-12 12:30:41     changed sql file
+
  creation time: 2025-02-12 12:29:33
  Modified by         Version          Modified timestamp      Commit message
  --------------------------------------------------------------------------------
@@ -9,4 +10,4 @@
 
 
 
-select * from a;
+select sal from a;
