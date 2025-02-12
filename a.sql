@@ -13,8 +13,10 @@
  Sruthi179            1.0             2025-02-12 14:53:16     changed variable
  Sruthi179            1.0             2025-02-12 14:53:46     qwerty
  Sruthi179            1.0             2025-02-12 14:56:21     new data
+ Sruthi179            1.0             2025-02-12 14:57:31     new line
 */
 
 
 
 select;
+select a,b;
