@@ -36,12 +36,10 @@ get_comment_suffix() {
 get_next_version() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-    comment_suffix=$(get_comment_suffix "$file")
 
-    last_version=$(awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
-        $0 ~ "^"prefix".*([0-9]+\.[0-9]+).*"{
-            print $1
-        }
+    last_version=$(awk -v prefix="$comment_prefix" '
+        $0 ~ "^" prefix " -{80}" { start=1; next }
+        start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
     ' "$file")
 
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -62,6 +60,7 @@ get_next_version() {
 
     echo "$new_major_version.$new_minor_version"
 }
+
 update_metadata() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
