@@ -36,20 +36,19 @@ get_comment_suffix() {
 get_next_version() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
-
     last_version=$(awk -v prefix="$comment_prefix" '
-        $0 ~ "^" prefix " -{80}" { start=1; next }
+        $0 ~ "^" prefix " -{80}$" { start=1; next }
         start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
     ' "$file")
-
+    
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
         echo "1.0"
         return
     fi
-
+    
     major_version=$(echo "$last_version" | cut -d. -f1)
     minor_version=$(echo "$last_version" | cut -d. -f2)
-
+    
     new_minor_version=$((minor_version + 1))
     if [ "$new_minor_version" -eq "10" ]; then
         new_major_version=$((major_version + 1))
@@ -57,7 +56,7 @@ get_next_version() {
     else
         new_major_version="$major_version"
     fi
-
+    
     echo "$new_major_version.$new_minor_version"
 }
 
