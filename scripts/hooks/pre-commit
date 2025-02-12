@@ -1,5 +1,5 @@
 #!/bin/sh
-
+# Pre-commit hook
 if [ -n "$SKIP_METADATA_HOOK" ]; then
     exit 0
 fi
@@ -7,39 +7,42 @@ fi
 current_user=$(git config user.name)
 current_timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-get_comment_prefix() {
+get_comment_style() {
     case "$1" in
         *.py)
-            echo "#"
+            echo "single"
             ;;
         *.sql|*.sqlx)
-            echo "/*"
+            echo "block"
             ;;
         *)
-            echo "#"
+            echo "single"
             ;;
     esac
 }
-
-get_comment_suffix() {
-    case "$1" in
-        *.sql|*.sqlx)
-            echo "*/"
-            ;;
-        *)
-            echo ""
-            ;;
-    esac
-}
-
 
 get_next_version() {
     file=$1
-    comment_prefix=$(get_comment_prefix "$file")
-    last_version=$(awk -v prefix="$comment_prefix" '
-        $0 ~ "^" prefix " -{80}$" { start=1; next }
-        start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
-    ' "$file")
+    if [[ "$file" =~ \.(sql|sqlx)$ ]]; then
+        # For SQL files, look for version in block comment
+        last_version=$(awk '
+            /\/\*/, /\*\// {
+                if ($0 ~ /[0-9]+\.[0-9]+/) {
+                    match($0, /[0-9]+\.[0-9]+/);
+                    if (RLENGTH > 0) {
+                        print substr($0, RSTART, RLENGTH);
+                        exit
+                    }
+                }
+            }
+        ' "$file")
+    else
+        # Original logic for other files
+        last_version=$(awk '
+            /^# -{80}$/ { start=1; next }
+            start && /^# [A-Za-z0-9]+/ { print $3; exit }
+        ' "$file")
+    fi
     
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
         echo "1.0"
@@ -62,47 +65,94 @@ get_next_version() {
 
 update_metadata() {
     file=$1
-    comment_prefix=$(get_comment_prefix "$file")
-    comment_suffix=$(get_comment_suffix "$file")
+    comment_style=$(get_comment_style "$file")
     temp_message="PENDING_COMMIT_MESSAGE"
-
-    if grep -q "${comment_prefix} creator name:" "$file"; then
-        # Append new metadata entry before the closing comment tag
-        NEW_METADATA=$(printf " %-20s %-15s %-23s %s\n" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message")
-
-        # Use awk to insert the new metadata before the closing comment
-        awk -v new_metadata="$NEW_METADATA" -v suffix="$comment_suffix" '
-            {
-                if ($0 ~ suffix) {
-                    print new_metadata;
-                }
-                print;
-            }
-        ' "$file" > "$file.tmp"
-        mv "$file.tmp" "$file"
-    else
-        # Create the initial metadata header
-        {
-            if [ "$comment_prefix" = "/*" ]; then
-                echo "/* creator name: $current_user"
-                echo " creation time: $current_timestamp"
-                echo " Modified by         Version          Modified timestamp      Commit message"
-                echo " --------------------------------------------------------------------------------"
-                printf " %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$temp_message"
-                echo "*/"
-            else
-                echo "${comment_prefix} creator name: $current_user"
-                echo "${comment_prefix} creation time: $current_timestamp"
-                echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
-                echo "${comment_prefix} --------------------------------------------------------------------------------"
-                printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$temp_message"
+    
+    if [ "$comment_style" = "block" ]; then
+        # Handle SQL files with block comments
+        if grep -q "creator name:" "$file"; then
+            if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
+                return 
             fi
-            echo ""
-        } > "$file.tmp"
-        cat "$file" >> "$file.tmp"
-        mv "$file.tmp" "$file"
+            
+            {
+                echo "/*"
+                # Extract existing header content (without /* and */)
+                awk '
+                    /\/\*/{p=1;next} /\*\//{p=0} p
+                ' "$file" | head -4
+                
+                # Add new entry
+                printf "%-20s %-15s %-23s %s\n" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
+                
+                # Add previous entries (up to 9)
+                awk '
+                    /\/\*/{p=1;next} /\*\//{p=0} p
+                ' "$file" | awk 'NR>4' | head -9
+                
+                echo "*/"
+                echo ""
+                
+                # Add rest of the file content
+                awk '
+                    /\*\//{p=1;next} p
+                ' "$file"
+            } > "$file.tmp"
+        else
+            # Create new header for SQL files
+            {
+                echo "/*"
+                echo "creator name: $current_user"
+                echo "creation time: $current_timestamp"
+                echo "Modified by         Version          Modified timestamp      Commit message"
+                echo "--------------------------------------------------------------------------------"
+                printf "%-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$temp_message"
+                echo "*/"
+                echo ""
+                cat "$file"
+            } > "$file.tmp"
+        fi
+    else
+        # Original logic for non-SQL files
+        if grep -q "^# creator name:" "$file"; then
+            if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
+                return 
+            fi
+            
+            {
+                awk '
+                    /^# creator name:/,/^# -{80}$/ {print}
+                ' "$file"
+                
+                printf "# %-20s %-15s %-23s %s\n" "$current_user" "$(get_next_version "$file")" "$current_timestamp" "$temp_message"
+                
+                awk '
+                    BEGIN {count = 0}
+                    /^# -{80}$/ {header_end = 1; next}
+                    header_end && /^#/ && count < 9 {print; count++}
+                ' "$file"
+                
+                echo ""
+                awk '
+                    BEGIN {content = 0}
+                    /^[^#]/ || $0 == "" {content = 1}
+                    content {print}
+                ' "$file"
+            } > "$file.tmp"
+        else
+            {
+                echo "# creator name: $current_user"
+                echo "# creation time: $current_timestamp"
+                echo "# Modified by         Version          Modified timestamp      Commit message"
+                echo "# --------------------------------------------------------------------------------"
+                printf "# %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$temp_message"
+                echo ""
+                cat "$file"
+            } > "$file.tmp"
+        fi
     fi
-
+    
+    mv "$file.tmp" "$file"
     export SKIP_METADATA_HOOK=1
     git add "$file"
     unset SKIP_METADATA_HOOK

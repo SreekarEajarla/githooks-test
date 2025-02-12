@@ -1,29 +1,13 @@
 #!/bin/sh
-
 if [ -n "$SKIP_METADATA_HOOK" ]; then
     exit 0
 fi
 
 commit_message=$(git log -1 --pretty=%B)
 
-get_comment_prefix() {
-    case "$1" in
-        *.py)
-            echo "#"
-            ;;
-        *.sql|*.sqlx)
-            echo "--"
-            ;;
-        *)
-            echo "#"
-            ;;
-    esac
-}
-
 if [ -f .git/TRACKED_FILES ]; then
     while IFS= read -r file; do
         if [ -f "$file" ]; then
-            comment_prefix=$(get_comment_prefix "$file")
             sed -i "s/PENDING_COMMIT_MESSAGE/$commit_message/" "$file"
             export SKIP_METADATA_HOOK=1
             git add "$file"
