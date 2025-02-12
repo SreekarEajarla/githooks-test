@@ -39,15 +39,8 @@ get_next_version() {
     comment_suffix=$(get_comment_suffix "$file")
 
     last_version=$(awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
-        BEGIN { FS = "[[:space:]]+" } # Field separator is one or more spaces
-        $0 ~ "^" prefix {
-            for (i = 1; i <= NF; i++) {
-                if ($i ~ /^[0-9]+\.[0-9]+$/) {
-                    version = $i;
-                    print version;
-                    exit;
-                }
-            }
+        $0 ~ "^"prefix".*([0-9]+\.[0-9]+).*"{
+            print $1
         }
     ' "$file")
 
@@ -69,7 +62,6 @@ get_next_version() {
 
     echo "$new_major_version.$new_minor_version"
 }
-
 update_metadata() {
     file=$1
     comment_prefix=$(get_comment_prefix "$file")
