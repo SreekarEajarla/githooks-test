@@ -69,7 +69,20 @@ update_metadata() {
 
     if grep -q "${comment_prefix} creator name:" "$file"; then
         # Append new metadata entry before the closing comment tag
-        sed -i -E "s@${comment_suffix}@ printf ' %-20s %-15s %-23s %s\n' \"$current_user\" \"$(get_next_version \"$file\")\" \"$current_timestamp\" \"$temp_message\" ; echo \"${comment_suffix}\"@g" "$file"
+        NEW_METADATA=" printf ' %-20s %-15s %-23s %s\n' \"$current_user\" \"$(get_next_version \"$file\")\" \"$current_timestamp\" \"$temp_message\""
+
+        # Use awk to insert the new metadata before the closing comment
+        awk -v new_metadata="$NEW_METADATA" -v suffix="$comment_suffix" '
+            {
+                if ($0 ~ suffix) {
+                    printf "%s", new_metadata "\n";
+                }
+                print;
+            }
+        ' "$file" > "$file.tmp"
+        mv "$file.tmp" "$file"
+
+
     else
         # Create the initial metadata header
         {
