@@ -11,9 +11,11 @@
  Sruthi179            1.1             2025-02-12 14:50:14     removed two line
  Sruthi179            1.1             2025-02-12 14:51:07     one line got deleted
  Sruthi179            1.0             2025-02-12 14:53:16     changed variable
+ Sruthi179            1.0             2025-02-12 14:53:46     qwerty
 */
 
 
 
 select a from a;
 select * from x;
+select;
