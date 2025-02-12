@@ -39,7 +39,7 @@ get_next_version() {
     comment_suffix=$(get_comment_suffix "$file")
     last_version=$(awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
         $0 ~ "^" prefix " -{80}" suffix { start=1; next }
-        start && $0 ~ "^" prefix " [A-Za-z0-9]+" { print $3; exit }
+        start && $0 ~ "^ " prefix "[A-Za-z0-9]+" { print $3; exit }
     ' "$file")
     
     if [ -z "$last_version" ] || ! [[ "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -66,7 +66,7 @@ update_metadata() {
     comment_prefix=$(get_comment_prefix "$file")
     comment_suffix=$(get_comment_suffix "$file")
     temp_message="PENDING_COMMIT_MESSAGE"
-        
+
     if grep -q "${comment_prefix} creator name:" "$file"; then
         if grep -q "PENDING_COMMIT_MESSAGE" "$file"; then
             return
@@ -81,34 +81,34 @@ update_metadata() {
 
             awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
                 BEGIN {count = 0}
-                $0 ~ "^" prefix " -{80}" suffix {header_end = 1; next}
+                $0 ~ "^"prefix" -{80}"suffix {header_end = 1; next}
                 header_end && /^'${prefix}'/ && count < 9 {print; count++}
             ' "$file"
 
             echo ""
             awk -v prefix="$comment_prefix" -v suffix="$comment_suffix" '
                 BEGIN {content = 0}
-                /^[^'${prefix}']/'"${suffix}"' || $0 == "" {content = 1}
+                /^[^'"${comment_prefix}"']/'"${comment_suffix}"'/ || $0 == "" {content = 1}
                 content {print}
             ' "$file"
         } > "$file.tmp"
         mv "$file.tmp" "$file"
     else
         {
-        if [ "$comment_prefix" = "/*" ]; then
-            echo "/* creator name: $current_user"
-            echo " creation time: $current_timestamp"
-            echo " Modified by         Version          Modified timestamp      Commit message"
-            echo " --------------------------------------------------------------------------------"
-            printf " %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$temp_message"
-            echo "*/"
-        else
-            echo "${comment_prefix} creator name: $current_user"
-            echo "${comment_prefix} creation time: $current_timestamp"
-            echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
-            echo "${comment_prefix} --------------------------------------------------------------------------------"
-            printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$temp_message"
-        fi
+            if [ "$comment_prefix" = "/*" ]; then
+                echo "/* creator name: $current_user"
+                echo " creation time: $current_timestamp"
+                echo " Modified by         Version          Modified timestamp      Commit message"
+                echo " --------------------------------------------------------------------------------"
+                printf " %-20s %-15s %-23s %s\n" "$current_user" "1.0" "$current_timestamp" "$temp_message"
+                echo "*/"
+            else
+                echo "${comment_prefix} creator name: $current_user"
+                echo "${comment_prefix} creation time: $current_timestamp"
+                echo "${comment_prefix} Modified by         Version          Modified timestamp      Commit message"
+                echo "${comment_prefix} --------------------------------------------------------------------------------"
+                printf "%s %-20s %-15s %-23s %s\n" "$comment_prefix" "$current_user" "1.0" "$current_timestamp" "$temp_message"
+            fi
             echo ""
             cat "$file"
         } > "$file.tmp"
